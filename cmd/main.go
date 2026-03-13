@@ -25,7 +25,9 @@ func main() {
 	wt := env.GetEnvDuration("SERVER_TIMEOUT_WRITE", 10)
 	it := env.GetEnvDuration("SERVER_TIMEOUT_IDLE", 120)
 
-	s := storage.NewStorage()
+	s := storage.NewStorage(storage.NowFunc)
+	defer s.Stop()
+
 	h := handler.NewHandler(s)
 
 	mux := http.NewServeMux()
