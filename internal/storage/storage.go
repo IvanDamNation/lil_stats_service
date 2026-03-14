@@ -25,6 +25,8 @@ type countStorage struct {
 
 	done chan struct{}
 	stop chan struct{}
+
+	onRotate func() // for tests
 }
 
 func NewStorage(timeProvider func() time.Duration) Storage {
@@ -98,6 +100,10 @@ func (cs *countStorage) rotate() {
 	cs.yesterday = newYesterday
 
 	cs.today = make(map[authorID]map[userID]struct{})
+
+	if cs.onRotate != nil {
+		cs.onRotate()
+	}
 }
 
 func (cs *countStorage) Stop() {
