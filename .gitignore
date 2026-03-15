@@ -1,0 +1,25 @@
+# bins
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# envs
+.env
+*.env.local
+
+# local & temp
+*.test
+*.out
+*.prof
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cache GO build
+.cache/
