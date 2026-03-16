@@ -54,10 +54,10 @@ func (cs *countStorage) RecordClick(u userID, a authorID) {
 }
 
 func (cs *countStorage) GetUniqueCounts(authorIDs []authorID) map[authorID]uint64 {
+	stats := make(map[authorID]uint64, len(authorIDs))
+
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-
-	stats := make(map[authorID]uint64, len(authorIDs))
 
 	for _, author := range authorIDs {
 		count := cs.yesterday[author]
@@ -90,16 +90,17 @@ func (cs *countStorage) rotateLoop(timeProvider func() time.Duration) {
 }
 
 func (cs *countStorage) rotate() {
+	newYesterday := make(map[authorID]uint64, len(cs.today))
+	newToday := make(map[authorID]map[userID]struct{})
+
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	newYesterday := make(map[authorID]uint64, len(cs.today))
 	for author, userSet := range cs.today {
 		newYesterday[author] = uint64(len(userSet))
 	}
 	cs.yesterday = newYesterday
-
-	cs.today = make(map[authorID]map[userID]struct{})
+	cs.today = newToday
 
 	if cs.onRotate != nil {
 		cs.onRotate()
