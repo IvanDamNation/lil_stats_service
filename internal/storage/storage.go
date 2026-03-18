@@ -5,22 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/IvanDamNation/lil_stats_service/internal/models"
+	m "github.com/IvanDamNation/lil_stats_service/internal/models"
 )
 
-type userID = models.UserID
-type authorID = models.AuthorID
-
-type Storage interface {
-	RecordClick(userID, authorID)
-	GetUniqueCounts(authorIDs []authorID) map[authorID]uint64
-
-	Stop()
-}
-
 type countStorage struct {
-	today     map[authorID]map[userID]struct{}
-	yesterday map[authorID]uint64
+	today     map[m.AuthorID]map[m.UserID]struct{}
+	yesterday map[m.AuthorID]uint64
 	mu        sync.RWMutex
 
 	done chan struct{}
@@ -29,10 +19,10 @@ type countStorage struct {
 	onRotate func() // for tests
 }
 
-func NewStorage(timeProvider func() time.Duration) Storage {
+func NewStorage(timeProvider func() time.Duration) *countStorage {
 	storage := &countStorage{
-		today:     make(map[authorID]map[userID]struct{}),
-		yesterday: make(map[authorID]uint64),
+		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
+		yesterday: make(map[m.AuthorID]uint64),
 
 		done: make(chan struct{}),
 		stop: make(chan struct{}),
@@ -43,18 +33,18 @@ func NewStorage(timeProvider func() time.Duration) Storage {
 	return storage
 }
 
-func (cs *countStorage) RecordClick(u userID, a authorID) {
+func (cs *countStorage) RecordClick(u m.UserID, a m.AuthorID) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
 	if _, exists := cs.today[a]; !exists {
-		cs.today[a] = make(map[userID]struct{})
+		cs.today[a] = make(map[m.UserID]struct{})
 	}
 	cs.today[a][u] = struct{}{}
 }
 
-func (cs *countStorage) GetUniqueCounts(authorIDs []authorID) map[authorID]uint64 {
-	stats := make(map[authorID]uint64, len(authorIDs))
+func (cs *countStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]uint64 {
+	stats := make(map[m.AuthorID]uint64, len(authorIDs))
 
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
@@ -90,8 +80,8 @@ func (cs *countStorage) rotateLoop(timeProvider func() time.Duration) {
 }
 
 func (cs *countStorage) rotate() {
-	newYesterday := make(map[authorID]uint64, len(cs.today))
-	newToday := make(map[authorID]map[userID]struct{})
+	newYesterday := make(map[m.AuthorID]uint64, len(cs.today))
+	newToday := make(map[m.AuthorID]map[m.UserID]struct{})
 
 	cs.mu.Lock()
 	defer cs.mu.Unlock()

@@ -7,31 +7,31 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/IvanDamNation/lil_stats_service/internal/models"
+	m "github.com/IvanDamNation/lil_stats_service/internal/models"
 )
 
-// realization of storage.Storage for tests
+// realization of СlickStorage for tests
 type mockStorage struct {
 	recordedClicks []struct {
-		userID   models.UserID
-		authorID models.AuthorID
+		userID   m.UserID
+		authorID m.AuthorID
 	}
-	returnCounts        map[models.AuthorID]uint64
-	getUniqueCountsArgs []models.AuthorID
+	returnCounts        map[m.AuthorID]uint64
+	getUniqueCountsArgs []m.AuthorID
 }
 
-func (m *mockStorage) RecordClick(userID models.UserID, authorID models.AuthorID) {
-	m.recordedClicks = append(m.recordedClicks, struct {
-		userID   models.UserID
-		authorID models.AuthorID
+func (ms *mockStorage) RecordClick(userID m.UserID, authorID m.AuthorID) {
+	ms.recordedClicks = append(ms.recordedClicks, struct {
+		userID   m.UserID
+		authorID m.AuthorID
 	}{userID, authorID})
 }
 
-func (m *mockStorage) GetUniqueCounts(authorIDs []models.AuthorID) map[models.AuthorID]uint64 {
-	m.getUniqueCountsArgs = authorIDs
-	result := make(map[models.AuthorID]uint64, len(authorIDs))
+func (ms *mockStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]uint64 {
+	ms.getUniqueCountsArgs = authorIDs
+	result := make(map[m.AuthorID]uint64, len(authorIDs))
 	for _, a := range authorIDs {
-		if count, ok := m.returnCounts[a]; ok {
+		if count, ok := ms.returnCounts[a]; ok {
 			result[a] = count
 		} else {
 			result[a] = 0
@@ -45,7 +45,7 @@ func (m *mockStorage) Stop() {}
 
 func TestClickHandler(t *testing.T) {
 	mock := &mockStorage{}
-	h := NewHandler(mock).(*Handler)
+	h := NewHandler(mock)
 
 	reqBody := clickRequest{
 		AuthorId: "author123",
@@ -71,14 +71,14 @@ func TestClickHandler(t *testing.T) {
 
 func TestYesterdayUniqueClicksHandler(t *testing.T) {
 	mock := &mockStorage{
-		returnCounts: map[models.AuthorID]uint64{
+		returnCounts: map[m.AuthorID]uint64{
 			"author1": 5,
 			"author2": 3,
 		},
 	}
-	h := NewHandler(mock).(*Handler)
+	h := NewHandler(mock)
 	reqBody := statsRequest{
-		AuthorIds: []models.AuthorID{"author1", "author2", "author3"},
+		AuthorIds: []string{"author1", "author2", "author3"},
 	}
 	body, _ := json.Marshal(reqBody)
 

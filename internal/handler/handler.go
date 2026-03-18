@@ -5,8 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/IvanDamNation/lil_stats_service/internal/models"
-	"github.com/IvanDamNation/lil_stats_service/internal/storage"
+	m "github.com/IvanDamNation/lil_stats_service/internal/models"
 )
 
 var (
@@ -18,26 +17,26 @@ var (
 	ErrZeroAuthorsRequested = "zero authors requested"
 )
 
+type ClickStorage interface {
+	RecordClick(userID m.UserID, authorID m.AuthorID)
+	GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]uint64
+}
+
 type Handler struct {
-	storage storage.Storage
+	storage ClickStorage
 }
 
-type StorageHandler interface {
-	Click(w http.ResponseWriter, r *http.Request)
-	YesterdayUniqueClicks(w http.ResponseWriter, r *http.Request)
-}
-
-func NewHandler(storage storage.Storage) StorageHandler {
+func NewHandler(storage ClickStorage) *Handler {
 	return &Handler{storage: storage}
 }
 
 type clickRequest struct {
-	AuthorId models.AuthorID `json:"author_id"`
-	UserId   models.UserID   `json:"user_id"`
+	AuthorId string `json:"author_id"`
+	UserId   string `json:"user_id"`
 }
 
 type statsRequest struct {
-	AuthorIds []models.AuthorID `json:"author_ids"`
+	AuthorIds []string `json:"author_ids"`
 }
 
 // POST /api/v1/click
@@ -68,7 +67,7 @@ func (h *Handler) Click(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Click got %v \n", req)
-	h.storage.RecordClick(req.UserId, req.AuthorId)
+	h.storage.RecordClick(m.UserID(req.UserId), m.AuthorID(req.AuthorId))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
@@ -101,7 +100,7 @@ func (h *Handler) YesterdayUniqueClicks(w http.ResponseWriter, r *http.Request) 
 	}
 
 	log.Printf("Got author list with length: %d", len(req.AuthorIds))
-	res := h.storage.GetUniqueCounts(req.AuthorIds)
+	res := h.storage.GetUniqueCounts(toDomainAuthorIDs(req.AuthorIds))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -110,4 +109,12 @@ func (h *Handler) YesterdayUniqueClicks(w http.ResponseWriter, r *http.Request) 
 		"status": http.StatusText(http.StatusOK),
 		"stats":  res,
 	})
+}
+
+func toDomainAuthorIDs(ids []string) []m.AuthorID {
+	res := make([]m.AuthorID, len(ids))
+	for i, v := range ids {
+		res[i] = m.AuthorID(v)
+	}
+	return res
 }

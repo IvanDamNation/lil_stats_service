@@ -5,25 +5,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IvanDamNation/lil_stats_service/internal/models"
+	m "github.com/IvanDamNation/lil_stats_service/internal/models"
 )
 
 func TestClickAndGetUnique(t *testing.T) {
 	s := &countStorage{
-		today:     make(map[authorID]map[userID]struct{}),
-		yesterday: make(map[authorID]uint64),
+		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
+		yesterday: make(map[m.AuthorID]uint64),
 	}
 
-	author1 := models.AuthorID("author1")
-	author2 := models.AuthorID("author2")
-	user1 := models.UserID("user1")
-	user2 := models.UserID("user2")
+	author1 := m.AuthorID("author1")
+	author2 := m.AuthorID("author2")
+	user1 := m.UserID("user1")
+	user2 := m.UserID("user2")
 
 	s.RecordClick(user1, author1)
 	s.RecordClick(user2, author1)
 	s.RecordClick(user1, author2)
 
-	res := s.GetUniqueCounts([]authorID{author1, author2, "author3"})
+	res := s.GetUniqueCounts([]m.AuthorID{author1, author2, "author3"})
 	if len(res) != 3 {
 		t.Errorf("expected 3, got %d", len(res))
 	}
@@ -52,15 +52,15 @@ func TestClickAndGetUnique(t *testing.T) {
 
 func TestRotate(t *testing.T) {
 	s := &countStorage{
-		today:     make(map[authorID]map[userID]struct{}),
-		yesterday: make(map[authorID]uint64),
+		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
+		yesterday: make(map[m.AuthorID]uint64),
 	}
 
-	author1 := models.AuthorID("author1")
-	author2 := models.AuthorID("author2")
-	user1 := models.UserID("user1")
-	user2 := models.UserID("user2")
-	user3 := models.UserID("user3")
+	author1 := m.AuthorID("author1")
+	author2 := m.AuthorID("author2")
+	user1 := m.UserID("user1")
+	user2 := m.UserID("user2")
+	user3 := m.UserID("user3")
 
 	s.RecordClick(user1, author1)
 	s.RecordClick(user2, author1)
@@ -85,7 +85,7 @@ func TestRotate(t *testing.T) {
 	}
 	s.mu.RUnlock()
 
-	res := s.GetUniqueCounts([]authorID{author1, author2})
+	res := s.GetUniqueCounts([]m.AuthorID{author1, author2})
 	if res[author1] != 3 {
 		t.Errorf("GetUniqueCounts after rotate: author1 expected 3, got %d", res[author1])
 	}
@@ -94,12 +94,12 @@ func TestRotate(t *testing.T) {
 	}
 
 	s.RecordClick(user1, author1)
-	res = s.GetUniqueCounts([]authorID{author1})
+	res = s.GetUniqueCounts([]m.AuthorID{author1})
 	if res[author1] != 3 {
 		t.Errorf("after new click, yesterday still 3, got %d", res[author1])
 	}
 	s.rotate()
-	res = s.GetUniqueCounts([]authorID{author1})
+	res = s.GetUniqueCounts([]m.AuthorID{author1})
 	if res[author1] != 1 {
 		t.Errorf("after 2nd rotate, author1 expected 1, got %d", res[author1])
 	}
@@ -107,8 +107,8 @@ func TestRotate(t *testing.T) {
 
 func TestConcurrent(t *testing.T) {
 	s := &countStorage{
-		today:     make(map[authorID]map[userID]struct{}),
-		yesterday: make(map[authorID]uint64),
+		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
+		yesterday: make(map[m.AuthorID]uint64),
 	}
 
 	const authors = 10
@@ -117,11 +117,11 @@ func TestConcurrent(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for a := range authors {
-		author := models.AuthorID(rune('A' + a))
+		author := m.AuthorID(rune('A' + a))
 		for u := range users {
-			user := models.UserID(rune('u' + u))
+			user := m.UserID(rune('u' + u))
 			wg.Add(1)
-			go func(author authorID, user userID) {
+			go func(author m.AuthorID, user m.UserID) {
 				defer wg.Done()
 				for range clickPerUser {
 					s.RecordClick(user, author)
@@ -137,7 +137,7 @@ func TestConcurrent(t *testing.T) {
 		t.Errorf("expected %d authors, got %d", authors, len(s.today))
 	}
 	for a := range authors {
-		author := models.AuthorID(rune('A' + a))
+		author := m.AuthorID(rune('A' + a))
 		if len(s.today[author]) != users {
 			t.Errorf(
 				"author %v expected %d users, got %d",
@@ -150,8 +150,8 @@ func TestRotateLoop(t *testing.T) {
 	rotateCalled := make(chan struct{}, 1)
 
 	s := &countStorage{
-		today:     make(map[authorID]map[userID]struct{}),
-		yesterday: make(map[authorID]uint64),
+		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
+		yesterday: make(map[m.AuthorID]uint64),
 		done:      make(chan struct{}),
 		stop:      make(chan struct{}),
 
