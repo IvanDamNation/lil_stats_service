@@ -28,12 +28,19 @@ func NewStorage(timeProvider func() time.Duration) *countStorage {
 	ticks := make(chan time.Time)
 
 	go func() {
+		defer close(ticks)
+
 		for {
 			dur := timeProvider()
 			timer := time.NewTimer(dur)
 			select {
 			case t := <-timer.C:
-				ticks <- t
+				select {
+				case ticks <- t:
+				case <-storage.stop:
+					timer.Stop()
+					return
+				}
 			case <-storage.stop:
 				timer.Stop()
 				return
