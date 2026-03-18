@@ -153,7 +153,6 @@ func TestRotateLoop(t *testing.T) {
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
 		yesterday: make(map[m.AuthorID]uint64),
 		done:      make(chan struct{}),
-		stop:      make(chan struct{}),
 	}
 
 	authorID := m.AuthorID("test-author")
@@ -184,6 +183,4 @@ func TestRotateLoop(t *testing.T) {
 	case <-timeout:
 		t.Fatal("rotate not called within timeout")
 	}
-
-	s.Stop()
 }

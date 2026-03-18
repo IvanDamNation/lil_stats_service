@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"log"
 	"sync"
 	"time"
@@ -14,16 +15,15 @@ type countStorage struct {
 	mu        sync.RWMutex
 
 	done chan struct{}
-	stop chan struct{}
 }
 
-func NewStorage(timeProvider func() time.Duration) *countStorage {
+func NewStorage(ctx context.Context, timeProvider func() time.Duration) *countStorage {
+	
 	storage := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
 		yesterday: make(map[m.AuthorID]uint64),
 
 		done: make(chan struct{}),
-		stop: make(chan struct{}),
 	}
 	ticks := make(chan time.Time)
 
@@ -37,11 +37,11 @@ func NewStorage(timeProvider func() time.Duration) *countStorage {
 			case t := <-timer.C:
 				select {
 				case ticks <- t:
-				case <-storage.stop:
+				case <-ctx.Done():
 					timer.Stop()
 					return
 				}
-			case <-storage.stop:
+			case <-ctx.Done():
 				timer.Stop()
 				return
 			}
@@ -83,13 +83,8 @@ func (cs *countStorage) rotateLoop(nextTick <-chan time.Time) {
 		close(cs.done)
 	}()
 
-	for {
-		select {
-		case <-nextTick:
-			cs.rotate()
-		case <-cs.stop:
-			return
-		}
+	for range nextTick {
+		cs.rotate()
 	}
 }
 
@@ -111,8 +106,7 @@ func (cs *countStorage) rotate() {
 	cs.mu.Unlock()
 }
 
-func (cs *countStorage) Stop() {
-	close(cs.stop)
+func (cs *countStorage) Wait() {
 	<-cs.done
 }
 
