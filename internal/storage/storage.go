@@ -15,8 +15,6 @@ type countStorage struct {
 
 	done chan struct{}
 	stop chan struct{}
-
-	onRotate func() // for tests
 }
 
 func NewStorage(timeProvider func() time.Duration) *countStorage {
@@ -27,8 +25,23 @@ func NewStorage(timeProvider func() time.Duration) *countStorage {
 		done: make(chan struct{}),
 		stop: make(chan struct{}),
 	}
+	ticks := make(chan time.Time)
 
-	go storage.rotateLoop(timeProvider)
+	go func() {
+		for {
+			dur := timeProvider()
+			timer := time.NewTimer(dur)
+			select {
+			case t := <-timer.C:
+				ticks <- t
+			case <-storage.stop:
+				timer.Stop()
+				return
+			}
+		}
+	}()
+
+	go storage.rotateLoop(ticks)
 
 	return storage
 }
@@ -57,23 +70,17 @@ func (cs *countStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]u
 	return stats
 }
 
-func (cs *countStorage) rotateLoop(timeProvider func() time.Duration) {
+func (cs *countStorage) rotateLoop(nextTick <-chan time.Time) {
 	defer func() {
 		log.Print("storage worker stopped")
 		close(cs.done)
 	}()
 
 	for {
-		dur := timeProvider()
-
-		log.Printf("rotation scheduled to: %v\n", dur)
-		timer := time.NewTimer(dur)
-
 		select {
-		case <-timer.C:
+		case <-nextTick:
 			cs.rotate()
 		case <-cs.stop:
-			timer.Stop()
 			return
 		}
 	}
@@ -91,10 +98,6 @@ func (cs *countStorage) rotate() {
 	}
 	cs.yesterday = newYesterday
 	cs.today = newToday
-
-	if cs.onRotate != nil {
-		cs.onRotate()
-	}
 }
 
 func (cs *countStorage) Stop() {

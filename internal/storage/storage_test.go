@@ -147,24 +147,41 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestRotateLoop(t *testing.T) {
-	rotateCalled := make(chan struct{}, 1)
+	ticks := make(chan time.Time)
 
 	s := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
 		yesterday: make(map[m.AuthorID]uint64),
 		done:      make(chan struct{}),
 		stop:      make(chan struct{}),
-
-		onRotate: func() {
-			rotateCalled <-struct{}{}
-		},
 	}
 
-	go s.rotateLoop(func() time.Duration { return time.Millisecond })
+	authorID := m.AuthorID("test-author")
+	s.today[authorID] = map[m.UserID]struct{}{"user1": {}}
+
+	go s.rotateLoop(ticks)
+
+	ticks <- time.Now()
+
+	timeout := time.After(100 * time.Millisecond)
+	tickProcessed := make(chan bool)
+	go func() {
+		for {
+			s.mu.RLock()
+			count := s.yesterday[authorID]
+			s.mu.RUnlock()
+
+			if count == 1 {
+				tickProcessed <- true
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}()
 
 	select {
-	case <-rotateCalled: // ok
-	case <-time.After(100 * time.Millisecond):
+	case <-tickProcessed: // ok
+	case <-timeout:
 		t.Fatal("rotate not called within timeout")
 	}
 
