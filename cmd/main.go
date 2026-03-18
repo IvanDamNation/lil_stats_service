@@ -15,6 +15,9 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	_ = env.LoadEnv(".env")
 
 	host := env.GetEnv("SERVER_ADDRESS", "127.0.0.1")
@@ -25,17 +28,14 @@ func main() {
 	wt := env.GetEnvDuration("SERVER_TIMEOUT_WRITE", 10)
 	it := env.GetEnvDuration("SERVER_TIMEOUT_IDLE", 120)
 
-	s := storage.NewStorage(storage.NowFunc)
-	defer s.Stop()
-
+	s := storage.NewStorage(ctx, storage.NowFunc)
 	h := handler.NewHandler(s)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/click", h.Click)
 	mux.HandleFunc("POST /api/v1/click_stats", h.YesterdayUniqueClicks)
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+
 
 	server := &http.Server{
 		Addr:         addr,
@@ -61,6 +61,8 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("shutdown error: %v", err)
 	}
+
+	s.Wait()
 
 	fmt.Println("server stopped")
 }
