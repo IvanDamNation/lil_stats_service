@@ -87,17 +87,21 @@ func (cs *countStorage) rotateLoop(nextTick <-chan time.Time) {
 }
 
 func (cs *countStorage) rotate() {
-	newYesterday := make(map[m.AuthorID]uint64, len(cs.today))
 	newToday := make(map[m.AuthorID]map[m.UserID]struct{})
 
 	cs.mu.Lock()
-	defer cs.mu.Unlock()
+	oldToday := cs.today
+	cs.today = newToday
+	cs.mu.Unlock()
 
-	for author, userSet := range cs.today {
+	newYesterday := make(map[m.AuthorID]uint64, len(oldToday))
+	for author, userSet := range oldToday {
 		newYesterday[author] = uint64(len(userSet))
 	}
+
+	cs.mu.Lock()
 	cs.yesterday = newYesterday
-	cs.today = newToday
+	cs.mu.Unlock()
 }
 
 func (cs *countStorage) Stop() {
