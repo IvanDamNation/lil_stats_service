@@ -1,17 +1,27 @@
 package storage
 
 import (
+	"context"
+	"errors"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	m "github.com/IvanDamNation/lil_stats_service/internal/models"
+	"github.com/IvanDamNation/lil_stats_service/pkg/ring"
 )
+
+type noopRing struct{}
+
+func (n *noopRing) Push(item m.ClickEvent)                     {}
+func (n *noopRing) GetLast(amount int) ([]m.ClickEvent, error) { return nil, nil }
 
 func TestClickAndGetUnique(t *testing.T) {
 	s := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
 		yesterday: make(map[m.AuthorID]uint64),
+		ringBuf:   &noopRing{},
 	}
 
 	author1 := m.AuthorID("author1")
@@ -54,6 +64,7 @@ func TestRotate(t *testing.T) {
 	s := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
 		yesterday: make(map[m.AuthorID]uint64),
+		ringBuf:   &noopRing{},
 	}
 
 	author1 := m.AuthorID("author1")
@@ -109,6 +120,7 @@ func TestConcurrent(t *testing.T) {
 	s := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
 		yesterday: make(map[m.AuthorID]uint64),
+		ringBuf:   &noopRing{},
 	}
 
 	const authors = 10
@@ -152,6 +164,7 @@ func TestRotateLoop(t *testing.T) {
 	s := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
 		yesterday: make(map[m.AuthorID]uint64),
+		ringBuf:   &noopRing{},
 		done:      make(chan struct{}),
 	}
 
@@ -183,4 +196,70 @@ func TestRotateLoop(t *testing.T) {
 	case <-timeout:
 		t.Fatal("rotate not called within timeout")
 	}
+}
+
+func TestGetLastEvents(t *testing.T) {
+	tests := []struct {
+		name        string
+		amount      int
+		expected    []m.ClickEvent
+		wantErr     bool
+		errContains error
+	}{
+		{"get events", 2,
+			[]m.ClickEvent{
+				{Author: "456", User: "123"},
+				{Author: "753", User: "789"},
+			},
+			false, nil,
+		},
+		{"get more than have", 4,
+			[]m.ClickEvent{
+				{Author: "456", User: "123"},
+				{Author: "753", User: "789"},
+				{Author: "apple", User: "banana"},
+			},
+			false, nil,
+		},
+		{
+			"get zero amount", 0,
+			[]m.ClickEvent{},
+			false, nil,
+		},
+		{"get negative amount", -3,
+			nil, true,
+			ring.ErrNegativeAmountInput,
+		},
+	}
+
+	s, err := NewStorage(context.Background(), 5, func() time.Duration { return time.Minute })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Wait()
+
+	s.RecordClick("banana", "apple")
+	s.RecordClick("789", "753")
+	s.RecordClick("123", "456")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.ringBuf.GetLast(tt.amount)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !errors.Is(err, tt.errContains) {
+					t.Fatalf("expected error %v, got %v", tt.errContains, err)
+				}
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("want: %v, got: %v", tt.expected, got)
+			}
+		})
+	}
+	close(s.done)
 }
