@@ -28,14 +28,18 @@ func main() {
 	wt := env.GetEnvDuration("SERVER_TIMEOUT_WRITE", 10)
 	it := env.GetEnvDuration("SERVER_TIMEOUT_IDLE", 120)
 
-	s := storage.NewStorage(ctx, storage.NowFunc)
+	rbc := env.GetEnvInt("RING_BUFFER_CAPACITY", 10)
+
+	s, err := storage.NewStorage(ctx, rbc, storage.NowFunc)
+	if err != nil {
+		log.Fatalf("storage init failed: %v", err)
+	}
+
 	h := handler.NewHandler(s)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/click", h.Click)
 	mux.HandleFunc("POST /api/v1/click_stats", h.YesterdayUniqueClicks)
-
-
 
 	server := &http.Server{
 		Addr:         addr,
