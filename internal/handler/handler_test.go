@@ -3,8 +3,10 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	m "github.com/IvanDamNation/lil_stats_service/internal/models"
@@ -18,6 +20,10 @@ type mockStorage struct {
 	}
 	returnCounts        map[m.AuthorID]uint64
 	getUniqueCountsArgs []m.AuthorID
+
+	getLastEventsAmount int
+	returnEvents        []m.ClickEvent
+	returnEventsErr     error
 }
 
 func (ms *mockStorage) RecordClick(userID m.UserID, authorID m.AuthorID) {
@@ -41,7 +47,10 @@ func (ms *mockStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]ui
 	return result
 }
 
-func (m *mockStorage) Stop() {}
+func (ms *mockStorage) GetLastEvents(amount int) ([]m.ClickEvent, error) {
+	ms.getLastEventsAmount = amount
+	return ms.returnEvents, ms.returnEventsErr
+}
 
 func TestClickHandler(t *testing.T) {
 	mock := &mockStorage{}
@@ -116,5 +125,97 @@ func TestYesterdayUniqueClicksHandler(t *testing.T) {
 	}
 	if stats["author3"] != float64(0) {
 		t.Errorf("author3 expected 0, got %v", stats["author3"])
+	}
+}
+
+func TestGetEventsHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		url            string
+		mockEvents     []m.ClickEvent
+		mockErr        error
+		expectedStatus int
+		expectedBody   []clickEventsResponse
+	}{
+		{
+			name: "success",
+			url:  "/api/v1/last_events?amount=10",
+			mockEvents: []m.ClickEvent{
+				{Author: "author1", User: "user1"},
+				{Author: "author2", User: "user2"}},
+			mockErr:        nil,
+			expectedStatus: http.StatusOK,
+			expectedBody: []clickEventsResponse{
+				{AuthorID: "author1", UserID: "user1"},
+				{AuthorID: "author2", UserID: "user2"}},
+		},
+		{
+			name:           "storage error",
+			url:            "/api/v1/last_events?amount=10",
+			mockEvents:     nil,
+			mockErr:        errors.New("mock error"),
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   nil,
+		},
+		{
+			name:           "zero amount",
+			url:            "/api/v1/last_events?amount=0",
+			expectedStatus: http.StatusOK,
+			expectedBody:   []clickEventsResponse{},
+		},
+		{
+			name:           "missing amount",
+			url:            "/api/v1/last_events",
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "invalid amount",
+			url:            "/api/v1/last_events?amount=asdf",
+			expectedStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:           "negative amount",
+			url:            "/api/v1/last_events?amount=-2",
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		mock := &mockStorage{
+			returnEvents:    tt.mockEvents,
+			returnEventsErr: tt.mockErr,
+		}
+		h := NewHandler(mock)
+
+		req := httptest.NewRequest(http.MethodGet, tt.url, nil)
+		w := httptest.NewRecorder()
+
+		h.LastEvents(w, req)
+		resp := w.Result()
+		defer resp.Body.Close()
+
+		if resp.StatusCode != tt.expectedStatus {
+			t.Errorf("expected status %d, got %d", tt.expectedStatus, resp.StatusCode)
+		}
+
+		if tt.expectedBody != nil {
+			var body []clickEventsResponse
+			if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if !reflect.DeepEqual(body, tt.expectedBody) {
+				t.Errorf("expected body %v, got %v", tt.expectedBody, body)
+			}
+		}
+
+		if tt.expectedStatus == http.StatusOK && tt.mockErr == nil {
+			var expectedAmount int
+			if tt.name != "zero amount" {
+				expectedAmount = 10
+			}
+			if mock.getLastEventsAmount != expectedAmount {
+				t.Errorf("expected amount %d, got %d", expectedAmount, mock.getLastEventsAmount)
+			}
+		}
 	}
 }
