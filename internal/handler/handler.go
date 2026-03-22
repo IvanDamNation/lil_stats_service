@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -9,19 +10,18 @@ import (
 	m "github.com/IvanDamNation/lil_stats_service/internal/models"
 )
 
-// TODO: change to errors.New
 var (
-	ErrInvalidJSON      = "invalid JSON"
-	ErrJSONEncode       = "JSON encoding error"
-	ErrMethodNotAllowed = "method not allowed"
+	ErrInvalidJSON      = errors.New("invalid JSON")
+	ErrJSONEncode       = errors.New("JSON encoding error")
+	ErrMethodNotAllowed = errors.New("method not allowed")
 
-	ErrAmountNegativeParam   = "amount query parameter is negative number"
-	ErrAmountQueryNAN        = "amount query is not a number"
-	ErrAmountQueryEmptyParam = "amount query parameter is not provided"
+	ErrAmountNegativeParam   = errors.New("amount query parameter is negative number")
+	ErrAmountQueryNAN        = errors.New("amount query is not a number")
+	ErrAmountQueryEmptyParam = errors.New("amount query parameter is not provided")
 
-	ErrAutorIdEmpty         = "author id is empty"
-	ErrUserIdEmpty          = "user id is empty"
-	ErrZeroAuthorsRequested = "zero authors requested"
+	ErrAutorIdEmpty         = errors.New("author id is empty")
+	ErrUserIdEmpty          = errors.New("user id is empty")
+	ErrZeroAuthorsRequested = errors.New("zero authors requested")
 )
 
 type ClickStorage interface {
@@ -56,27 +56,27 @@ type clickEventsResponse struct {
 func (h *Handler) LastEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		log.Print("Got wrong method")
-		http.Error(w, ErrMethodNotAllowed, http.StatusMethodNotAllowed)
+		http.Error(w, ErrMethodNotAllowed.Error(), http.StatusMethodNotAllowed)
 		return
 	}
 
 	rawAmount := r.URL.Query().Get("amount")
 	if rawAmount == "" {
 		log.Print("Empty amount request")
-		http.Error(w, ErrAmountQueryEmptyParam, http.StatusBadRequest)
+		http.Error(w, ErrAmountQueryEmptyParam.Error(), http.StatusBadRequest)
 		return
 	}
 
 	amount, err := strconv.Atoi(rawAmount)
 	if err != nil {
 		log.Printf("Invalid amount format: %s", rawAmount)
-		http.Error(w, ErrAmountQueryNAN, http.StatusUnprocessableEntity)
+		http.Error(w, ErrAmountQueryNAN.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
 	if amount < 0 {
 		log.Printf("Negative amount: %d", amount)
-		http.Error(w, ErrAmountNegativeParam, http.StatusBadRequest)
+		http.Error(w, ErrAmountNegativeParam.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (h *Handler) LastEvents(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(&res)
 	if err != nil {
 		log.Print("LastEvents: JSON encode error")
-		http.Error(w, ErrJSONEncode, http.StatusInternalServerError)
+		http.Error(w, ErrJSONEncode.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -110,7 +110,7 @@ func (h *Handler) LastEvents(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Click(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		log.Print("Got wrong method")
-		http.Error(w, ErrMethodNotAllowed, http.StatusMethodNotAllowed)
+		http.Error(w, ErrMethodNotAllowed.Error(), http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -118,18 +118,18 @@ func (h *Handler) Click(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		log.Printf("JSON decode error: %v", err)
-		http.Error(w, ErrInvalidJSON, http.StatusBadRequest)
+		http.Error(w, ErrInvalidJSON.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if req.AuthorId == "" {
 		log.Print("Got empty author ID")
-		http.Error(w, ErrAutorIdEmpty, http.StatusUnprocessableEntity)
+		http.Error(w, ErrAutorIdEmpty.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	if req.UserId == "" {
 		log.Print("Got empty user ID")
-		http.Error(w, ErrUserIdEmpty, http.StatusUnprocessableEntity)
+		http.Error(w, ErrUserIdEmpty.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -148,7 +148,7 @@ func (h *Handler) Click(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) YesterdayUniqueClicks(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		log.Print("Got wrong method")
-		http.Error(w, ErrMethodNotAllowed, http.StatusMethodNotAllowed)
+		http.Error(w, ErrMethodNotAllowed.Error(), http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -156,13 +156,13 @@ func (h *Handler) YesterdayUniqueClicks(w http.ResponseWriter, r *http.Request) 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		log.Printf("JSON decode error: %v", err)
-		http.Error(w, ErrInvalidJSON, http.StatusBadRequest)
+		http.Error(w, ErrInvalidJSON.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if len(req.AuthorIds) == 0 {
 		log.Printf("Got empty author list")
-		http.Error(w, ErrZeroAuthorsRequested, http.StatusUnprocessableEntity)
+		http.Error(w, ErrZeroAuthorsRequested.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
