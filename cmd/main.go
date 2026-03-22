@@ -28,7 +28,7 @@ func main() {
 	wt := env.GetEnvDuration("SERVER_TIMEOUT_WRITE", 10)
 	it := env.GetEnvDuration("SERVER_TIMEOUT_IDLE", 120)
 
-	rbc := env.GetEnvInt("RING_BUFFER_CAPACITY", 10)
+	rbc := env.GetEnvInt("RING_BUFFER_CAPACITY", 1000)
 
 	s, err := storage.NewStorage(ctx, rbc, storage.NowFunc)
 	if err != nil {
@@ -38,7 +38,7 @@ func main() {
 	h := handler.NewHandler(s)
 
 	mux := http.NewServeMux()
-	
+
 	mux.HandleFunc("GET /api/v1/last_events", h.LastEvents)
 
 	mux.HandleFunc("POST /api/v1/click", h.Click)
