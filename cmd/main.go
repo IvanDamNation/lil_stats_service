@@ -38,6 +38,9 @@ func main() {
 	h := handler.NewHandler(s)
 
 	mux := http.NewServeMux()
+	
+	mux.HandleFunc("GET /api/v1/last_events", h.LastEvents)
+
 	mux.HandleFunc("POST /api/v1/click", h.Click)
 	mux.HandleFunc("POST /api/v1/click_stats", h.YesterdayUniqueClicks)
 
