@@ -19,7 +19,7 @@ var (
 	ErrAmountQueryNAN        = errors.New("amount query is not a number")
 	ErrAmountQueryEmptyParam = errors.New("amount query parameter is not provided")
 
-	ErrAutorIdEmpty         = errors.New("author id is empty")
+	ErrAuthorIdEmpty        = errors.New("author id is empty")
 	ErrUserIdEmpty          = errors.New("user id is empty")
 	ErrZeroAuthorsRequested = errors.New("zero authors requested")
 )
@@ -124,7 +124,7 @@ func (h *Handler) Click(w http.ResponseWriter, r *http.Request) {
 
 	if req.AuthorId == "" {
 		log.Print("Got empty author ID")
-		http.Error(w, ErrAutorIdEmpty.Error(), http.StatusUnprocessableEntity)
+		http.Error(w, ErrAuthorIdEmpty.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 	if req.UserId == "" {

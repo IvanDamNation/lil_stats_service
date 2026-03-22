@@ -138,7 +138,7 @@ Environment variables (can be placed in `.env` file):
 | `SERVER_TIMEOUT_READ`  | `5`         | Read timeout (seconds)      |
 | `SERVER_TIMEOUT_WRITE` | `10`        | Write timeout (seconds)     |
 | `SERVER_TIMEOUT_IDLE`  | `120`       | Idle timeout (seconds)      |
-| `RING_BUFFER_SIZE`     | `1000`      | Capacity of the ring buffer |
+| `RING_BUFFER_CAPACITY` | `1000`      | Capacity of the ring buffer |
 
 ## Build and Run
 
@@ -151,7 +151,7 @@ Environment variables (can be placed in `.env` file):
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourname/lil_stats_service.git
+   git clone https://github.com/IvanDamNation/lil_stats_service.git
    cd lil_stats_service
    ```
 
