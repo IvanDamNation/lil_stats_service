@@ -4,13 +4,20 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	m "github.com/IvanDamNation/lil_stats_service/internal/models"
 )
 
+// TODO: change to errors.New
 var (
 	ErrInvalidJSON      = "invalid JSON"
+	ErrJSONEncode       = "JSON encoding error"
 	ErrMethodNotAllowed = "method not allowed"
+
+	ErrAmountNegativeParam   = "amount query parameter is negative number"
+	ErrAmountQueryNAN        = "amount query is not a number"
+	ErrAmountQueryEmptyParam = "amount query parameter is not provided"
 
 	ErrAutorIdEmpty         = "author id is empty"
 	ErrUserIdEmpty          = "user id is empty"
@@ -19,6 +26,7 @@ var (
 
 type ClickStorage interface {
 	RecordClick(userID m.UserID, authorID m.AuthorID)
+	GetLastEvents(amount int) ([]m.ClickEvent, error)
 	GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]uint64
 }
 
@@ -37,6 +45,65 @@ type clickRequest struct {
 
 type statsRequest struct {
 	AuthorIds []string `json:"author_ids"`
+}
+
+type clickEventsResponse struct {
+	AuthorID string `json:"author_id"`
+	UserID   string `json:"user_id"`
+}
+
+// GET /api/v1/last_events?amount={int}
+func (h *Handler) LastEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		log.Print("Got wrong method")
+		http.Error(w, ErrMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	rawAmount := r.URL.Query().Get("amount")
+	if rawAmount == "" {
+		log.Print("Empty amount request")
+		http.Error(w, ErrAmountQueryEmptyParam, http.StatusBadRequest)
+		return
+	}
+
+	amount, err := strconv.Atoi(rawAmount)
+	if err != nil {
+		log.Printf("Invalid amount format: %s", rawAmount)
+		http.Error(w, ErrAmountQueryNAN, http.StatusUnprocessableEntity)
+		return
+	}
+
+	if amount < 0 {
+		log.Printf("Negative amount: %d", amount)
+		http.Error(w, ErrAmountNegativeParam, http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Get request last events: %d", amount)
+	events, err := h.storage.GetLastEvents(amount)
+	if err != nil {
+		log.Printf("Storage error: %v", err)
+		http.Error(w, "failed to retrieve events", http.StatusInternalServerError)
+		return
+	}
+
+	res := make([]clickEventsResponse, len(events))
+	for i, v := range events {
+		res[i] = clickEventsResponse{
+			AuthorID: string(v.Author),
+			UserID:   string(v.User),
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(&res)
+	if err != nil {
+		log.Print("LastEvents: JSON encode error")
+		http.Error(w, ErrJSONEncode, http.StatusInternalServerError)
+		return
+	}
 }
 
 // POST /api/v1/click
