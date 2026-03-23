@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"errors"
 	"reflect"
 	"sync"
@@ -232,11 +231,14 @@ func TestGetLastEvents(t *testing.T) {
 		},
 	}
 
-	s, err := NewStorage(context.Background(), 5, func() time.Duration { return time.Minute })
+	ctx := t.Context()
+	s, err := NewStorage(ctx, 5, func() time.Duration { return time.Minute })
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Wait()
+	t.Cleanup(func() {
+		s.Wait()
+	})
 
 	s.RecordClick("banana", "apple")
 	s.RecordClick("789", "753")
@@ -244,7 +246,7 @@ func TestGetLastEvents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := s.ringBuf.GetLast(tt.amount)
+			got, err := s.GetLastEvents(tt.amount)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -261,5 +263,4 @@ func TestGetLastEvents(t *testing.T) {
 			}
 		})
 	}
-	close(s.done)
 }

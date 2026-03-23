@@ -106,7 +106,7 @@ Retrieve the most recent click events from the ring buffer.
 
 **Query parameter:**
 
-- `amount` (int, optional, default = 10) – number of events to return. Must be positive.
+- `amount` (int, required) – number of events to return. Must be nonnegative.
 
 **Response:**
 

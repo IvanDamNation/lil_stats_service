@@ -98,10 +98,8 @@ func (h *Handler) LastEvents(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(&res)
-	if err != nil {
-		log.Print("LastEvents: JSON encode error")
-		http.Error(w, ErrJSONEncode.Error(), http.StatusInternalServerError)
+	if err = json.NewEncoder(w).Encode(&res); err != nil {
+		log.Printf("LastEvents: %s", ErrJSONEncode)
 		return
 	}
 }
