@@ -56,6 +56,7 @@ type clickEventsResponse struct {
 func (h *Handler) LastEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		log.Print("Got wrong method")
+		w.Header().Set("Allow", http.MethodGet)
 		http.Error(w, ErrMethodNotAllowed.Error(), http.StatusMethodNotAllowed)
 		return
 	}
@@ -108,6 +109,7 @@ func (h *Handler) LastEvents(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Click(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		log.Print("Got wrong method")
+		w.Header().Set("Allow", http.MethodPost)
 		http.Error(w, ErrMethodNotAllowed.Error(), http.StatusMethodNotAllowed)
 		return
 	}
@@ -146,6 +148,7 @@ func (h *Handler) Click(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) YesterdayUniqueClicks(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		log.Print("Got wrong method")
+		w.Header().Set("Allow", http.MethodPost)
 		http.Error(w, ErrMethodNotAllowed.Error(), http.StatusMethodNotAllowed)
 		return
 	}
