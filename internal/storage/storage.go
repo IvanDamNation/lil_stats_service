@@ -7,21 +7,33 @@ import (
 	"time"
 
 	m "github.com/IvanDamNation/lil_stats_service/internal/models"
+	"github.com/IvanDamNation/lil_stats_service/pkg/ring"
 )
+
+type clickEventsRing[T any] interface {
+	Push(T)
+	GetLast(int) ([]T, error)
+}
 
 type countStorage struct {
 	today     map[m.AuthorID]map[m.UserID]struct{}
 	yesterday map[m.AuthorID]uint64
+	ringBuf   clickEventsRing[m.ClickEvent]
 	mu        sync.RWMutex
 
 	done chan struct{}
 }
 
-func NewStorage(ctx context.Context, timeProvider func() time.Duration) *countStorage {
-	
+func NewStorage(ctx context.Context, capacity int, timeProvider func() time.Duration) (*countStorage, error) {
+	ringBuf, err := ring.NewRingBuffer[m.ClickEvent](capacity)
+	if err != nil {
+		return nil, err
+	}
+
 	storage := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
 		yesterday: make(map[m.AuthorID]uint64),
+		ringBuf:   ringBuf,
 
 		done: make(chan struct{}),
 	}
@@ -50,13 +62,14 @@ func NewStorage(ctx context.Context, timeProvider func() time.Duration) *countSt
 
 	go storage.rotateLoop(ticks)
 
-	return storage
+	return storage, nil
 }
 
 func (cs *countStorage) RecordClick(u m.UserID, a m.AuthorID) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
+	cs.ringBuf.Push(m.ClickEvent{Author: a, User: u})
 	if _, exists := cs.today[a]; !exists {
 		cs.today[a] = make(map[m.UserID]struct{})
 	}
@@ -75,6 +88,17 @@ func (cs *countStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]u
 	}
 
 	return stats
+}
+
+func (cs *countStorage) GetLastEvents(amount int) ([]m.ClickEvent, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	items, err := cs.ringBuf.GetLast(amount)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (cs *countStorage) rotateLoop(nextTick <-chan time.Time) {
