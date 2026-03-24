@@ -10,11 +10,13 @@ import (
 	"github.com/IvanDamNation/lil_stats_service/pkg/ring"
 )
 
+// Contract for ring buffer
 type clickEventsRing[T any] interface {
 	Push(T)
 	GetLast(int) ([]T, error)
 }
 
+// Main storage for click stats
 type countStorage struct {
 	today     map[m.AuthorID]map[m.UserID]struct{}
 	yesterday map[m.AuthorID]uint64
@@ -24,6 +26,7 @@ type countStorage struct {
 	done chan struct{}
 }
 
+// Constructor of countStorage
 func NewStorage(ctx context.Context, capacity int, timeProvider func() time.Duration) (*countStorage, error) {
 	ringBuf, err := ring.NewRingBuffer[m.ClickEvent](capacity)
 	if err != nil {
@@ -65,6 +68,7 @@ func NewStorage(ctx context.Context, capacity int, timeProvider func() time.Dura
 	return storage, nil
 }
 
+// Registers new click by user ID and Author ID
 func (cs *countStorage) RecordClick(u m.UserID, a m.AuthorID) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
@@ -76,6 +80,7 @@ func (cs *countStorage) RecordClick(u m.UserID, a m.AuthorID) {
 	cs.today[a][u] = struct{}{}
 }
 
+// Method to acquire stats by list of author IDs
 func (cs *countStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]uint64 {
 	stats := make(map[m.AuthorID]uint64, len(authorIDs))
 
@@ -90,6 +95,7 @@ func (cs *countStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]u
 	return stats
 }
 
+// Method to take last N events from circular buffer
 func (cs *countStorage) GetLastEvents(amount int) ([]m.ClickEvent, error) {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
@@ -101,6 +107,7 @@ func (cs *countStorage) GetLastEvents(amount int) ([]m.ClickEvent, error) {
 	return items, nil
 }
 
+// Cycle for work with swapping today and yesterday stats
 func (cs *countStorage) rotateLoop(nextTick <-chan time.Time) {
 	defer func() {
 		log.Print("storage worker stopped")
@@ -112,6 +119,7 @@ func (cs *countStorage) rotateLoop(nextTick <-chan time.Time) {
 	}
 }
 
+// Worker contains logic of swapping today and yesterday stats
 func (cs *countStorage) rotate() {
 	newToday := make(map[m.AuthorID]map[m.UserID]struct{})
 
@@ -130,10 +138,12 @@ func (cs *countStorage) rotate() {
 	cs.mu.Unlock()
 }
 
+// Method waits for graceful stop of rotateLoop
 func (cs *countStorage) Wait() {
 	<-cs.done
 }
 
+// Gets duration time before midnight
 func NowFunc() time.Duration {
 	now := time.Now()
 	nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
