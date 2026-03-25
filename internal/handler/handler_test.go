@@ -12,7 +12,7 @@ import (
 	m "github.com/IvanDamNation/lil_stats_service/internal/models"
 )
 
-// realization of СlickStorage for tests
+// Implements ClickStorage for tests
 type mockStorage struct {
 	recordedClicks []struct {
 		userID   m.UserID
@@ -26,6 +26,7 @@ type mockStorage struct {
 	returnEventsErr     error
 }
 
+// Mocking ClickStorage method for registering clicks
 func (ms *mockStorage) RecordClick(userID m.UserID, authorID m.AuthorID) {
 	ms.recordedClicks = append(ms.recordedClicks, struct {
 		userID   m.UserID
@@ -33,6 +34,7 @@ func (ms *mockStorage) RecordClick(userID m.UserID, authorID m.AuthorID) {
 	}{userID, authorID})
 }
 
+// Mocking ClickStorage method for yesterday stats
 func (ms *mockStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]uint64 {
 	ms.getUniqueCountsArgs = authorIDs
 	result := make(map[m.AuthorID]uint64, len(authorIDs))
@@ -47,11 +49,13 @@ func (ms *mockStorage) GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]ui
 	return result
 }
 
+// Mocking ClickStorage method for latest events in ring buffer
 func (ms *mockStorage) GetLastEvents(amount int) ([]m.ClickEvent, error) {
 	ms.getLastEventsAmount = amount
 	return ms.returnEvents, ms.returnEventsErr
 }
 
+// Test for Click
 func TestClickHandler(t *testing.T) {
 	mock := &mockStorage{}
 	h := NewHandler(mock)
@@ -78,6 +82,7 @@ func TestClickHandler(t *testing.T) {
 	}
 }
 
+// Test for YesterdayUniqueClicks
 func TestYesterdayUniqueClicksHandler(t *testing.T) {
 	mock := &mockStorage{
 		returnCounts: map[m.AuthorID]uint64{
@@ -128,6 +133,7 @@ func TestYesterdayUniqueClicksHandler(t *testing.T) {
 	}
 }
 
+// Test for LastEvents
 func TestGetEventsHandler(t *testing.T) {
 	tests := []struct {
 		name           string

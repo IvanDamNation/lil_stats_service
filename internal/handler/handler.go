@@ -24,29 +24,35 @@ var (
 	ErrZeroAuthorsRequested = errors.New("zero authors requested")
 )
 
+// Contract for storage of click stats
 type ClickStorage interface {
 	RecordClick(userID m.UserID, authorID m.AuthorID)
 	GetLastEvents(amount int) ([]m.ClickEvent, error)
 	GetUniqueCounts(authorIDs []m.AuthorID) map[m.AuthorID]uint64
 }
 
+// Service's main handler
 type Handler struct {
 	storage ClickStorage
 }
 
+// Handler constructor
 func NewHandler(storage ClickStorage) *Handler {
 	return &Handler{storage: storage}
 }
 
+// For Click method
 type clickRequest struct {
 	AuthorId string `json:"author_id"`
 	UserId   string `json:"user_id"`
 }
 
+// For YesterdayUniqueClicks method
 type statsRequest struct {
 	AuthorIds []string `json:"author_ids"`
 }
 
+// For LastEvents method
 type clickEventsResponse struct {
 	AuthorID string `json:"author_id"`
 	UserID   string `json:"user_id"`
@@ -179,6 +185,7 @@ func (h *Handler) YesterdayUniqueClicks(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// Converter from basic type to domain entity
 func toDomainAuthorIDs(ids []string) []m.AuthorID {
 	res := make([]m.AuthorID, len(ids))
 	for i, v := range ids {

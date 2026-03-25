@@ -11,11 +11,16 @@ import (
 	"github.com/IvanDamNation/lil_stats_service/pkg/ring"
 )
 
+// Mock implementation of clickEventsRing[T any] for tests
 type noopRing struct{}
 
-func (n *noopRing) Push(item m.ClickEvent)                     {}
+// Mocking clickEventsRing[T any] method for registering new clicks
+func (n *noopRing) Push(item m.ClickEvent) {}
+
+// Mocking clickEventsRing[T any] method for acquiring N latest events in ring buffer
 func (n *noopRing) GetLast(amount int) ([]m.ClickEvent, error) { return nil, nil }
 
+// Test for registering new clicks and acquiring unique counts
 func TestClickAndGetUnique(t *testing.T) {
 	s := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
@@ -59,6 +64,7 @@ func TestClickAndGetUnique(t *testing.T) {
 	s.mu.RUnlock()
 }
 
+// Test for today and yesterday stats swapping
 func TestRotate(t *testing.T) {
 	s := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
@@ -115,6 +121,7 @@ func TestRotate(t *testing.T) {
 	}
 }
 
+// Test of concurrent click registering
 func TestConcurrent(t *testing.T) {
 	s := &countStorage{
 		today:     make(map[m.AuthorID]map[m.UserID]struct{}),
@@ -157,6 +164,7 @@ func TestConcurrent(t *testing.T) {
 	}
 }
 
+// Test for proper work of stats rotation loop
 func TestRotateLoop(t *testing.T) {
 	ticks := make(chan time.Time)
 
@@ -197,6 +205,7 @@ func TestRotateLoop(t *testing.T) {
 	}
 }
 
+// Test for acquiring yesterday stats
 func TestGetLastEvents(t *testing.T) {
 	tests := []struct {
 		name        string
